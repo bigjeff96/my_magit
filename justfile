@@ -3,4 +3,4 @@ build:
     odin build src/ -debug -out:build/my_magit.exe
 
 run: build
-    ./build/my_magit.exe
+    ghostty -e "./build/my_magit.exe; sleep 5"
