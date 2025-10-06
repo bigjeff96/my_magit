@@ -10,8 +10,8 @@ main :: proc() {
     for {
         tui_start(&ctx)
         clear_screen(&ctx)
-        move_cursor(&ctx, rows / 2, cols /2)
-        fmt.sbprint(&ctx.builder, "HELLO JEFF")
+        write_at(&ctx, rows / 2, cols / 2, "HELLO JEFF")
+        write_at(&ctx, 0, 0, "BOO")
         tui_flush(&ctx)
     }
 }

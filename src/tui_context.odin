@@ -28,6 +28,11 @@ linux_get_window_size :: proc() -> (rows, cols: int) {
 }
 //TODO: find out how to use signals to find when the terminal is resized
 
+//TODO: how to save and restore cursor position
+//TODO: how to catch a SIGINT signal
+//TODO: find what is raw mode for the terminal
+//TODO: how to determine keyboard/mouse events for the terminal
+
 
 Tui_ctx :: struct {
     builder: strings.Builder,
@@ -61,6 +66,11 @@ erase_right_down :: proc(ctx: ^Tui_ctx) {
 clear_screen :: proc(ctx: ^Tui_ctx) {
     move_cursor(ctx, 0, 0)
     erase_right_down(ctx)
+}
+
+write_at :: proc(ctx: ^Tui_ctx, row, col: int, txt: string) {
+    move_cursor(ctx, row, col)
+    fmt.sbprint(&ctx.builder, txt)
 }
 
 tui_start :: proc(ctx: ^Tui_ctx) {
