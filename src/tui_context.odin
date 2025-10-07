@@ -89,6 +89,7 @@ tui_flush :: proc(ctx: ^Tui_ctx) {
 FRAME_DURATION_NANO :: time.Duration(33333333) // 30 fps
 
 
+//---------------------------------------------
 
 //TODO: find out how to use signals to find when the terminal is resized
 //TODO: how to catch a SIGINT signal
