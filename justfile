@@ -1,6 +1,7 @@
 build:
+    #!/usr/bin/env bash
     mkdir -p build
-    odin build src/ -debug -out:build/my_magit.exe
+    time odin build src/ -debug -out:build/my_magit.exe
 
 run: build
     ghostty -e "./build/my_magit.exe; sleep 5"

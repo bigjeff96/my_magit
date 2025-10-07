@@ -26,10 +26,9 @@ linux_get_window_size :: proc() -> (rows, cols: int) {
     cols = auto_cast terminal_window.ws_col
     return
 }
-//TODO: find out how to use signals to find when the terminal is resized
+
 
 //TODO: how to save and restore cursor position
-//TODO: how to catch a SIGINT signal
 //TODO: find what is raw mode for the terminal
 //TODO: how to determine keyboard/mouse events for the terminal
 
@@ -88,3 +87,52 @@ tui_flush :: proc(ctx: ^Tui_ctx) {
 }
 
 FRAME_DURATION_NANO :: time.Duration(33333333) // 30 fps
+
+
+
+//TODO: find out how to use signals to find when the terminal is resized
+//TODO: how to catch a SIGINT signal
+
+/*
+Probing for flag support
+       The following example program exits with status EXIT_SUCCESS if
+       SA_EXPOSE_TAGBITS is determined to be supported, and EXIT_FAILURE
+       otherwise.
+
+       #include <signal.h>
+       #include <stdio.h>
+       #include <stdlib.h>
+       #include <unistd.h>
+
+       static void
+       handler(int signo, siginfo_t *info, void *context)
+       {
+           struct sigaction oldact;
+
+           if (sigaction(SIGSEGV, NULL, &oldact) == -1
+               || (oldact.sa_flags & SA_UNSUPPORTED)
+               || !(oldact.sa_flags & SA_EXPOSE_TAGBITS))
+           {
+               _exit(EXIT_FAILURE);
+           }
+           _exit(EXIT_SUCCESS);
+       }
+
+       int
+       main(void)
+       {
+           struct sigaction act = { 0 };
+
+           act.sa_flags = SA_SIGINFO | SA_UNSUPPORTED | SA_EXPOSE_TAGBITS;
+           act.sa_sigaction = &handler;
+           if (sigaction(SIGSEGV, &act, NULL) == -1) {
+               perror("sigaction");
+               exit(EXIT_FAILURE);
+           }
+
+           raise(SIGSEGV);
+       }
+*/
+
+//NOTE: look into rt_sigaction in core/sys/linux/sys.odin
+//NOTE: https://man7.org/linux/man-pages/man2/sigaction.2.html
