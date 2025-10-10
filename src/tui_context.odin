@@ -1,5 +1,7 @@
 package my_magit
 
+import "base:runtime"
+import "core:sys/posix"
 import "core:strings"
 import "core:terminal/ansi"
 import "core:mem"
@@ -7,6 +9,9 @@ import "core:time"
 import "core:sys/linux"
 import "core:fmt"
 import "core:c"
+import "core:log"
+import os "core:os/os2"
+
 
 //NOTE: this only works if we start the program in an already running terminal
 linux_get_window_size :: proc() -> (rows, cols: int) {
@@ -31,6 +36,10 @@ linux_get_window_size :: proc() -> (rows, cols: int) {
 //TODO: how to save and restore cursor position
 //TODO: find what is raw mode for the terminal
 //TODO: how to determine keyboard/mouse events for the terminal
+//TODO: write logs into a temp file then use tail -F on that file to get logging outside of the terminal
+
+@(private="file")
+current_tui_ctx: ^Tui_ctx
 
 
 Tui_ctx :: struct {
@@ -38,16 +47,35 @@ Tui_ctx :: struct {
     rows: int,
     cols: int,
     tick: time.Tick,
+    window_resize: bool,
+    logger: log.Logger,
 }
 
-tui_ctx_init :: proc(allocator := context.allocator) -> Tui_ctx {
+handle_terminal_resize :: proc "c" (signal: posix.Signal) {
+    context = runtime.default_context()
+    assert(signal == auto_cast posix.SIGWINCH)
+    current_tui_ctx.window_resize = true
+}
+
+tui_ctx_init :: proc(allocator := context.allocator) -> ^Tui_ctx {
     assert(ODIN_OS == .Linux)
+
+    file, err := os.open("my_magit_logs.txt", {.Read, .Write, .Create}, 0o666)
+    assert(err == nil)
+
+    logger := log.create_file_logger(auto_cast os.fd(file))
+    ret := posix.sigaction(auto_cast posix.SIGWINCH, &{sa_handler = handle_terminal_resize}, nil)
+    assert (ret == .OK)
+
     rows, cols := linux_get_window_size()
-    return Tui_ctx{
-        builder = strings.builder_make(allocator),
-        rows = rows,
-        cols = cols,
-    }
+    current_tui_ctx = new(Tui_ctx)
+    current_tui_ctx.builder = strings.builder_make(allocator)
+    current_tui_ctx.rows = rows
+    current_tui_ctx.cols = cols
+    current_tui_ctx.logger = logger
+
+    log.debug("tui with", rows,"rows and", cols, "cols")
+    return current_tui_ctx
 }
 
 SEP :: ";"
@@ -73,7 +101,11 @@ write_at :: proc(ctx: ^Tui_ctx, row, col: int, txt: string) {
 }
 
 tui_start :: proc(ctx: ^Tui_ctx) {
-    //NOTE: nothing, for now
+    context.logger = ctx.logger
+    if ctx.window_resize {
+        ctx.rows, ctx.cols = linux_get_window_size()
+        log.debug("resized to ", ctx.rows, ctx.cols)
+    }
 }
 
 tui_flush :: proc(ctx: ^Tui_ctx) {
@@ -81,18 +113,23 @@ tui_flush :: proc(ctx: ^Tui_ctx) {
     if duration < FRAME_DURATION_NANO {
         time.accurate_sleep(FRAME_DURATION_NANO - duration)
     }
-
     fmt.print(strings.to_string(ctx.builder), flush = true)
     strings.builder_reset(&ctx.builder)
 }
 
+tui_end :: proc(ctx: ^Tui_ctx) {
+    log.destroy_file_logger(context.logger)
+}
+
 FRAME_DURATION_NANO :: time.Duration(33333333) // 30 fps
 
+//TODO: how to dynamically change the frame rate of the terminal depends on the events from the
+// user or the terminal or changes in the file-system?
 
 //---------------------------------------------
 
-//TODO: find out how to use signals to find when the terminal is resized
 //TODO: how to catch a SIGINT signal
+//TODO: how does raw mode affect the signals the terminal will receive?
 
 /*
 Probing for flag support
@@ -135,5 +172,3 @@ Probing for flag support
        }
 */
 
-//NOTE: look into rt_sigaction in core/sys/linux/sys.odin
-//NOTE: https://man7.org/linux/man-pages/man2/sigaction.2.html
